@@ -1,0 +1,42 @@
+@model PublicInfoModel
+@using System.Globalization
+@using System.Collections.Generic
+@{
+    Layout = "";
+
+    var backgroundColor = string.IsNullOrWhiteSpace(Model.BackgroundColor) ? "#f2f2f2" : Model.BackgroundColor;
+    var textColor = string.IsNullOrWhiteSpace(Model.TextColor) ? "#2156b0" : Model.TextColor;
+    var autoHeight = Model.DesktopHeight <= 0;
+    var hasPicture = !string.IsNullOrEmpty(Model.PictureUrl);
+
+    var cssVars = new List<string>
+    {
+        autoHeight ? null : $"--ph-height:{Model.DesktopHeight}px",
+        $"--ph-mobile-height:{Model.MobileHeight}px",
+        $"--ph-bg:{backgroundColor}",
+        $"--ph-text:{textColor}",
+        $"--ph-overlay:{(Model.OverlayOpacity / 100m).ToString(CultureInfo.InvariantCulture)}"
+    };
+    cssVars.RemoveAll(value => string.IsNullOrEmpty(value));
+}
+
+<link rel="stylesheet" href="~/lib_npm/@("@fortawesome")/fontawesome-free/css/all.min.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/lib_npm/@("@fortawesome")/fontawesome-free/css/v4-shims.min.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/Plugins/Widgets.ProHeader/Content/css/proheader.css" asp-append-version="true" />
+
+<section class="pro-header-bar @(autoHeight ? "pro-header-bar--auto" : null)"
+         style="@string.Join(";", cssVars)"
+         aria-label="@T("Plugins.Widgets.ProHeader.AriaLabel")">
+    @if (hasPicture)
+    {
+        <img class="pro-header-bar__bg"
+             src="@Model.PictureUrl"
+             alt="@Model.AltText"
+             width="2850" height="450"
+             fetchpriority="high"
+             decoding="async" />
+        <div class="pro-header-bar__overlay"></div>
+    }
+
+    <div class="pro-header-bar__text">@Html.Raw(Model.Text)</div>
+</section>

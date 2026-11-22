@@ -1,0 +1,11 @@
+{
+  "Group": "Widgets",
+  "FriendlyName": "Pro header bar",
+  "SystemName": "Widgets.ProHeader",
+  "Version": "1.02",
+  "SupportedVersions": [ "4.90" ],
+  "Author": "Custom",
+  "DisplayOrder": 1,
+  "FileName": "Nop.Plugin.Widgets.ProHeader.dll",
+  "Description": "Displays an admin-editable full-width info bar at the top of the home page."
+}

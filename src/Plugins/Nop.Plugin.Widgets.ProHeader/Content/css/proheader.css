@@ -1,0 +1,97 @@
+/* Pro header bar: full-width, admin-editable info bar at the top of the home page.
+   The background picture is rendered as an <img> layer so it can carry alt text
+   and be prioritized as the first above-the-fold image. */
+
+.pro-header-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--ph-height, 220px);
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--ph-bg, #f2f2f2);
+}
+
+/* Used when DesktopHeight is 0: approximate the 2850x450 picture ratio
+   while still allowing the box to grow when the text needs more room. */
+.pro-header-bar--auto {
+  min-height: clamp(140px, 15.8vw, 280px);
+}
+
+.pro-header-bar__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  z-index: -2;
+}
+
+.pro-header-bar__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, var(--ph-overlay, 0));
+  z-index: -1;
+}
+
+.pro-header-bar__text {
+  position: relative;
+  z-index: 1;
+  margin-inline-start: auto;
+  margin-inline-end: clamp(16px, 4vw, 60px);
+  width: min(360px, 26%);
+  padding-block: 18px;
+  color: var(--ph-text, #2156b0);
+  font-size: clamp(14px, 0.9vw, 16px);
+  line-height: 1.6;
+  text-align: start;
+}
+
+/* Keep the reference site's #header_text typography */
+.pro-header-bar__text p {
+  margin: 0;
+}
+
+.pro-header-bar__text p + p,
+.pro-header-bar__text .tw-disappear {
+  margin-top: 10px;
+}
+
+.pro-header-bar__text strong {
+  font-weight: 700;
+}
+
+.pro-header-bar__text u {
+  text-decoration: underline;
+}
+
+.pro-header-bar__text a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.pro-header-bar__text a:hover,
+.pro-header-bar__text a:focus-visible {
+  color: #3876e0;
+  text-decoration: underline;
+}
+
+.pro-header-bar__text i {
+  margin-inline-end: 4px;
+}
+
+@media all and (max-width: 600px) {
+  .pro-header-bar,
+  .pro-header-bar--auto {
+    min-height: var(--ph-mobile-height, 120px);
+  }
+
+  .pro-header-bar__text {
+    width: auto;
+    margin: 0 16px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+}
