@@ -1,0 +1,136 @@
+@model Nop.Plugin.Widgets.ProProductDocuments.Models.Admin.ProductDocumentsModel
+
+@{
+    const string hideBlockAttributeName = "ProductPage.HideDocumentsBlock";
+    var customer = await workContext.GetCurrentCustomerAsync();
+    var hideBlock = await genericAttributeService.GetAttributeAsync<bool>(customer, hideBlockAttributeName);
+}
+
+<nop-card asp-name="product-documents" asp-icon="fas fa-file-lines" asp-title="@T("Plugins.Widgets.ProProductDocuments.Title")" asp-hide-block-attribute-name="@hideBlockAttributeName" asp-hide="@hideBlock" asp-advanced="false">
+    <div class="card-body">
+        @if (Model.ProductId == 0)
+        {
+            <div class="callout callout-info">
+                @T("Plugins.Widgets.ProProductDocuments.SaveProductFirst")
+            </div>
+        }
+        else
+        {
+            <div class="form-group row">
+                <div class="col-md-3">
+                    <label class="col-form-label">@T("Plugins.Widgets.ProProductDocuments.Fields.File")</label>
+                </div>
+                <div class="col-md-9">
+                    <input type="file" id="product-document-file" class="form-control" accept="@string.Join(",", ProductDocumentsDefaults.AllowedFileExtensions)" />
+                </div>
+            </div>
+            <div class="form-group row">
+                <div class="col-md-3">
+                    <label class="col-form-label">@T("Plugins.Widgets.ProProductDocuments.Fields.Title")</label>
+                </div>
+                <div class="col-md-9">
+                    <input type="text" id="product-document-title" class="form-control" />
+                    <small class="form-text text-muted">@T("Plugins.Widgets.ProProductDocuments.Fields.Title.Hint")</small>
+                </div>
+            </div>
+            <div class="form-group row">
+                <div class="col-md-9 offset-md-3">
+                    <button type="button" id="product-document-upload" class="btn btn-primary">
+                        <i class="fas fa-upload"></i>
+                        @T("Plugins.Widgets.ProProductDocuments.Upload")
+                    </button>
+                </div>
+            </div>
+            <div id="product-documents-list">
+                @await Html.PartialAsync("~/Plugins/Widgets.ProProductDocuments/Views/Admin/_ProductDocumentsList.cshtml", Model)
+            </div>
+            <script asp-location="Footer">
+                $(function () {
+                    var productId = @Model.ProductId;
+
+                    function refreshProductDocuments() {
+                        var postData = { productId: productId };
+                        addAntiForgeryToken(postData);
+                        $.post('@Url.Action("List", "ProductDocumentAdmin", new { area = "Admin" })', postData, function (html) {
+                            $('#product-documents-list').html(html);
+                        });
+                    }
+
+                    $('#product-document-upload').on('click', function () {
+                        var fileInput = document.getElementById('product-document-file');
+                        if (!fileInput.files.length) {
+                            alert('@T("Plugins.Widgets.ProProductDocuments.FileRequired")');
+                            return;
+                        }
+
+                        var formData = new FormData();
+                        formData.append('productId', productId);
+                        formData.append('title', $('#product-document-title').val());
+                        formData.append('file', fileInput.files[0]);
+                        formData.append('__RequestVerificationToken', $('input[name="__RequestVerificationToken"]').val());
+
+                        var button = $(this);
+                        button.prop('disabled', true);
+
+                        $.ajax({
+                            url: '@Url.Action("Upload", "ProductDocumentAdmin", new { area = "Admin" })',
+                            type: 'POST',
+                            data: formData,
+                            processData: false,
+                            contentType: false,
+                            success: function (response) {
+                                if (response.success) {
+                                    $('#product-document-file').val('');
+                                    $('#product-document-title').val('');
+                                    refreshProductDocuments();
+                                } else {
+                                    alert(response.message);
+                                }
+                            },
+                            error: function () {
+                                alert('@T("Plugins.Widgets.ProProductDocuments.Upload.Failed")');
+                            },
+                            complete: function () {
+                                button.prop('disabled', false);
+                            }
+                        });
+                    });
+
+                    $('#product-documents-list').on('click', '.save-product-document', function () {
+                        var row = $(this).closest('tr');
+                        var postData = {
+                            id: row.data('document-id'),
+                            title: row.find('.product-document-title-input').val(),
+                            displayOrder: row.find('.product-document-display-order-input').val(),
+                            isActive: row.find('.product-document-is-active-input').is(':checked')
+                        };
+                        addAntiForgeryToken(postData);
+
+                        $.post('@Url.Action("Update", "ProductDocumentAdmin", new { area = "Admin" })', postData, function (response) {
+                            if (response.success)
+                                refreshProductDocuments();
+                            else
+                                alert(response.message);
+                        });
+                    });
+
+                    $('#product-documents-list').on('click', '.delete-product-document', function () {
+                        if (!confirm('@T("Admin.Common.AreYouSure")'))
+                            return;
+
+                        var row = $(this).closest('tr');
+                        var postData = { id: row.data('document-id') };
+                        addAntiForgeryToken(postData);
+
+                        $.post('@Url.Action("Delete", "ProductDocumentAdmin", new { area = "Admin" })', postData, function (response) {
+                            if (response.success)
+                                refreshProductDocuments();
+                            else
+                                alert(response.message);
+                        });
+                    });
+                });
+            </script>
+        }
+    </div>
+</nop-card>

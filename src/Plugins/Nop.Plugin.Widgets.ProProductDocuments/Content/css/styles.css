@@ -1,0 +1,114 @@
+.product-documents-box {
+    margin: 0 0 40px;
+}
+
+.product-documents-box .title {
+    display: inline-block;
+    margin: 0;
+    padding: 12px 24px;
+    border: 1px solid #ddd;
+    border-bottom: 0;
+    background: #f6f6f6;
+    color: var(--dark-gray-color, #444);
+    font-size: 18px;
+    line-height: 1.4;
+}
+
+.product-documents-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid #ddd;
+    background: #fff;
+}
+
+.product-document-item + .product-document-item {
+    border-top: 1px solid #eee;
+}
+
+.product-document-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+}
+
+.product-document-item:hover {
+    background: #f9f9f9;
+}
+
+.product-document-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.product-document-badge {
+    flex: 0 0 auto;
+    min-width: 44px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--accent-blue-color, #4ab2f1);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.5px;
+}
+
+.product-document-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 15px;
+    color: inherit;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.product-document-title:hover {
+    text-decoration: underline;
+}
+
+.product-document-size {
+    flex: 0 0 auto;
+    color: var(--gray-color, #6b6b6b);
+    font-size: 12px;
+}
+
+.product-document-view {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    padding: 7px 14px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    background: #f7f7f7;
+    color: var(--dark-gray-color, #444);
+    font-size: 13px;
+    line-height: 1.2;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.product-document-view:hover {
+    border-color: var(--accent-blue-color, #4ab2f1);
+    background: var(--accent-blue-color, #4ab2f1);
+    color: #fff;
+}
+
+.product-document-view-icon {
+    flex: 0 0 auto;
+}
+
+@media all and (max-width: 767px) {
+    .product-document-item {
+        flex-wrap: wrap;
+    }
+
+    .product-document-view {
+        margin-left: 56px;
+    }
+}

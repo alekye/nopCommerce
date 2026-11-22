@@ -1,0 +1,42 @@
+@model Nop.Plugin.Widgets.ProProductDocuments.Models.PublicProductDocumentsModel
+
+@{
+    NopHtml.AddCssFileParts("~/Plugins/Widgets.ProProductDocuments/Content/css/styles.css");
+}
+
+<div class="product-documents-box">
+    <h2 class="title">@T("Plugins.Widgets.ProProductDocuments.PublicTitle")</h2>
+    <ul class="product-documents-list">
+        @foreach (var document in Model.Documents)
+        {
+            <li class="product-document-item">
+                <div class="product-document-info">
+                    <span class="product-document-badge">@document.FileExtension.ToUpperInvariant()</span>
+                    <a class="product-document-title"
+                       href="@Url.RouteUrl(ProductDocumentsDefaults.DownloadRouteName, new { id = document.Id, download = "true" })"
+                       title="@T("Plugins.Widgets.ProProductDocuments.DownloadDocument")">
+                        @document.Title
+                    </a>
+                    @if (!string.IsNullOrEmpty(document.FileSizeFormatted))
+                    {
+                        <span class="product-document-size">@document.FileSizeFormatted</span>
+                    }
+                </div>
+                @if (document.CanView)
+                {
+                    <a class="product-document-view"
+                       href="@Url.RouteUrl(ProductDocumentsDefaults.DownloadRouteName, new { id = document.Id })"
+                       target="_blank"
+                       rel="noopener"
+                       title="@T("Plugins.Widgets.ProProductDocuments.ViewDocument")">
+                        <svg class="product-document-view-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                        <span>@T("Plugins.Widgets.ProProductDocuments.ViewDocument")</span>
+                    </a>
+                }
+            </li>
+        }
+    </ul>
+</div>

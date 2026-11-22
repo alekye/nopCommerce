@@ -1,0 +1,48 @@
+@model Nop.Plugin.Widgets.ProProductDocuments.Models.Admin.ProductDocumentsModel
+
+@if (!Model.Documents.Any())
+{
+    <div class="text-muted mb-3">@T("Plugins.Widgets.ProProductDocuments.NoDocuments")</div>
+}
+else
+{
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>@T("Plugins.Widgets.ProProductDocuments.Fields.Title")</th>
+                <th>@T("Plugins.Widgets.ProProductDocuments.Fields.File")</th>
+                <th style="width: 100px;">@T("Plugins.Widgets.ProProductDocuments.Fields.DisplayOrder")</th>
+                <th style="width: 80px;">@T("Plugins.Widgets.ProProductDocuments.Fields.IsActive")</th>
+                <th style="width: 140px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var document in Model.Documents)
+            {
+                <tr data-document-id="@document.Id">
+                    <td>
+                        <input type="text" class="form-control product-document-title-input" value="@document.Title" />
+                    </td>
+                    <td>
+                        <a href="@Url.Action("Download", "ProductDocumentAdmin", new { area = "Admin", id = document.Id })" target="_blank" rel="noopener">@document.FileName</a>
+                        <div class="text-muted">@document.FileSizeFormatted</div>
+                    </td>
+                    <td>
+                        <input type="number" class="form-control product-document-display-order-input" value="@document.DisplayOrder" />
+                    </td>
+                    <td class="text-center">
+                        <input type="checkbox" class="product-document-is-active-input" @(document.IsActive ? "checked" : null) />
+                    </td>
+                    <td class="text-right">
+                        <button type="button" class="btn btn-primary save-product-document" title="@T("Admin.Common.Save")">
+                            <i class="far fa-floppy-disk"></i>
+                        </button>
+                        <button type="button" class="btn btn-danger delete-product-document" title="@T("Admin.Common.Delete")">
+                            <i class="far fa-trash-can"></i>
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
