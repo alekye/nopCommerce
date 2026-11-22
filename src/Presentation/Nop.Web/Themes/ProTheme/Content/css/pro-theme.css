@@ -1,0 +1,204 @@
+/* ProTheme custom styles: stretch the storefront layout to the full browser width.
+   Loaded after styles.css (and styles.rtl.css), so these rules win over the
+   fixed-width containers defined in the DefaultClean breakpoints. */
+
+.master-wrapper-content,
+.header,
+.header-menu,
+.footer-upper,
+.footer-lower {
+  width: 100%;
+  max-width: none;
+  /* keep a small gutter so content does not touch the viewport edges */
+  padding-inline: 15px;
+}
+
+/* The flyout menu panel is capped at 1200px in DefaultClean */
+.menu__grid-view {
+  max-width: 100%;
+}
+
+/* ==========================================================================
+   Header menu row: actions dropdown | main menu | search
+   ========================================================================== */
+
+.header-menu {
+  position: relative;
+}
+
+.header-menu__bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.header-actions__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--dark-gray-color);
+  cursor: pointer;
+}
+
+.header-actions__toggle:hover,
+.header-actions__toggle:focus-visible {
+  color: var(--accent-blue-color);
+}
+
+.header-actions__icon {
+  width: 24px;
+  height: 24px;
+}
+
+.header-menu__nav {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.header-menu__nav > .menu-container {
+  width: 100%;
+  padding: 0;
+}
+
+.header-menu__search {
+  flex: 0 0 320px;
+  min-width: 0;
+  max-width: 320px;
+}
+
+.header-menu__search form {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  min-width: 0;
+  width: 100%;
+}
+
+.header-menu__search .search-box-text {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.header-menu__search .search-box-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Full-width actions panel */
+.header-actions__panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1200;
+  width: 100%;
+  padding: clamp(16px, 2.4vw, 32px) clamp(15px, 4vw, 60px);
+  background-color: #fff;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, .12);
+}
+
+.header-actions__panel[hidden] {
+  display: none;
+}
+
+.header-actions__panel .header-upper {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px 40px;
+  border: 0;
+}
+
+.header-actions__panel .header-upper:after {
+  display: none;
+}
+
+.header-actions__panel .header-selectors-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  border: 0;
+  padding: 0;
+}
+
+.header-actions__panel .header-selectors-wrapper > div {
+  width: auto;
+  min-width: 180px;
+  margin: 0;
+}
+
+.header-actions__panel .header-links-wrapper {
+  position: relative;
+  padding: 0;
+}
+
+.header-actions__panel .header-links ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+.header-actions__panel .header-links li {
+  display: block;
+  margin: 0;
+}
+
+.header-actions__panel #topcartlink {
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  background: none;
+}
+
+.header-actions__panel #flyout-cart {
+  right: auto;
+  left: 0;
+}
+
+@media all and (max-width: 1000px) {
+  .header-menu__bar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .header-actions {
+    order: 1;
+  }
+
+  .header-menu__nav {
+    order: 2;
+    flex: 1 1 0;
+  }
+
+  .header-menu__search {
+    order: 3;
+    flex: 1 0 100%;
+    max-width: none;
+    margin-bottom: 15px;
+  }
+
+  .header-menu__search form {
+    justify-content: stretch;
+  }
+
+  .header-actions__panel {
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+  }
+
+  .header-actions__panel .header-upper {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

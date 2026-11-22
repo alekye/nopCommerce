@@ -1,0 +1,89 @@
+<a class="skip" href="#main">@T("Header.SkipNavigation.Text")</a>
+@await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HeaderBefore })
+
+<div class="header-menu" role="banner">
+    <div class="header-menu__bar">
+        <div class="header-actions">
+            <button type="button"
+                    class="header-actions__toggle"
+                    aria-expanded="false"
+                    aria-controls="header-actions-panel"
+                    aria-haspopup="true"
+                    aria-label="Menu">
+                <svg class="header-actions__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="header-menu__nav">
+            @await Component.InvokeAsync(typeof(MainMenuViewComponent))
+        </div>
+
+        <div role="search" class="search-box store-search-box header-menu__search">
+            @await Component.InvokeAsync(typeof(SearchBoxViewComponent))
+        </div>
+    </div>
+
+    <div id="header-actions-panel" class="header-actions__panel" hidden>
+        <!-- keep header-upper: the cart flyout script binds to it -->
+        <div class="header-upper">
+            <div class="header-selectors-wrapper">
+                @await Component.InvokeAsync(typeof(TaxTypeSelectorViewComponent))
+                @await Component.InvokeAsync(typeof(CurrencySelectorViewComponent))
+                @await Component.InvokeAsync(typeof(LanguageSelectorViewComponent))
+                @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HeaderSelectors })
+            </div>
+            <div class="header-links-wrapper">
+                @await Component.InvokeAsync(typeof(HeaderLinksViewComponent))
+                @await Component.InvokeAsync(typeof(FlyoutShoppingCartViewComponent))
+            </div>
+        </div>
+    </div>
+</div>
+
+@await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HeaderMiddle })
+@await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HeaderAfter })
+
+<script asp-location="Footer">
+    (function () {
+        var menu = document.querySelector('.header-menu');
+        if (!menu) return;
+
+        var toggle = menu.querySelector('.header-actions__toggle');
+        var panel = menu.querySelector('.header-actions__panel');
+        if (!toggle || !panel) return;
+
+        function setOpen(open) {
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            panel.hidden = !open;
+
+            if (!open) {
+                var flyout = panel.querySelector('#flyout-cart');
+                if (flyout) flyout.classList.remove('active');
+            }
+        }
+
+        toggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            setOpen(panel.hidden);
+        });
+
+        document.addEventListener('click', function (e) {
+            if (panel.hidden) return;
+            if (toggle.contains(e.target) || panel.contains(e.target)) return;
+
+            // close first, and do not activate the element underneath in the same click
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen(false);
+        }, true);
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !panel.hidden) {
+                setOpen(false);
+                toggle.focus();
+            }
+        });
+    })();
+</script>
