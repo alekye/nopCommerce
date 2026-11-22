@@ -60,15 +60,24 @@ public class WidgetSwiperController : BasePluginController
         if (string.IsNullOrEmpty(slidesSetting))
             return new List<Slide>();
 
-        return JsonConvert.DeserializeObject<List<Slide>>(slidesSetting);
+        return JsonConvert.DeserializeObject<List<Slide>>(slidesSetting) ?? new List<Slide>();
     }
 
-    #endregion
+    protected virtual async Task SaveSlidesForStoreAsync(List<Slide> slides, int storeId)
+    {
+        var sliderSettings = await _settingService.LoadSettingAsync<SwiperSettings>(storeId);
 
-    #region Methods
+        if (slides.Count == 0)
+        {
+            await _settingService.DeleteSettingAsync(sliderSettings, setting => setting.Slides, storeId);
+            return;
+        }
 
-    [CheckPermission(StandardPermission.Configuration.MANAGE_WIDGETS)]
-    public async Task<IActionResult> Configure()
+        sliderSettings.Slides = JsonConvert.SerializeObject(slides);
+        await _settingService.SaveSettingOverridablePerStoreAsync(sliderSettings, x => x.Slides, true, storeId);
+    }
+
+    protected virtual async Task<ConfigurationModel> PrepareConfigurationModelAsync()
     {
         //load settings for a chosen store scope
         var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
@@ -92,7 +101,22 @@ public class WidgetSwiperController : BasePluginController
             model.LazyLoading_OverrideForStore = await _settingService.SettingExistsAsync(sliderSettings, x => x.LazyLoading, storeScope);
         }
 
+        return model;
+    }
+
+    protected virtual IActionResult ConfigureView(ConfigurationModel model)
+    {
         return View("~/Plugins/Widgets.Swiper/Views/Configure.cshtml", model);
+    }
+
+    #endregion
+
+    #region Methods
+
+    [CheckPermission(StandardPermission.Configuration.MANAGE_WIDGETS)]
+    public async Task<IActionResult> Configure()
+    {
+        return ConfigureView(await PrepareConfigurationModelAsync());
     }
 
     [HttpPost]
@@ -132,13 +156,21 @@ public class WidgetSwiperController : BasePluginController
     [FormValueRequired("add-slide")]
     public virtual async Task<IActionResult> SlideAdd(SlidePictureModel model)
     {
+        //a slide must always reference an existing picture, otherwise the grid cannot display it
+        if (await _pictureService.GetPictureByIdAsync(model.PictureId) is null)
+            ModelState.AddModelError(nameof(model.PictureId), await _localizationService.GetResourceAsync("Plugins.Widgets.Swiper.Picture.Required"));
+
         if (!ModelState.IsValid)
-            return await Configure();
+        {
+            //display validation errors and keep the entered values
+            var configurationModel = await PrepareConfigurationModelAsync();
+            configurationModel.AddSlideModel = model;
+
+            return ConfigureView(configurationModel);
+        }
 
         //load settings for a chosen store scope
         var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
-        var sliderSettings = await _settingService.LoadSettingAsync<SwiperSettings>(storeScope);
-
         var slides = await GetSlidesForStoreAsync(storeScope);
 
         slides.Add(new()
@@ -149,8 +181,7 @@ public class WidgetSwiperController : BasePluginController
             LinkUrl = model.LinkUrl
         });
 
-        sliderSettings.Slides = JsonConvert.SerializeObject(slides);
-        await _settingService.SaveSettingOverridablePerStoreAsync(sliderSettings, x => x.Slides, true, storeScope);
+        await SaveSlidesForStoreAsync(slides, storeScope);
 
         return RedirectToAction(nameof(Configure));
     }
@@ -162,28 +193,27 @@ public class WidgetSwiperController : BasePluginController
         var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
         var slides = await GetSlidesForStoreAsync(storeScope);
 
-        if (slides is null)
-            return Json(new SlideListModel());
-
-        var model = await new SlideListModel().PrepareToGridAsync(slidesSearchModel, slides.ToPagedList(slidesSearchModel), () =>
+        //a slide may reference a picture that has been deleted in the meantime;
+        //skip such records instead of breaking the whole grid
+        var slideModels = new List<PublicSlideModel>();
+        foreach (var slide in slides.Where(slide => slide.PictureId != 0))
         {
-            return slides
-                .Where(s => s.PictureId != 0)
-                .SelectAwait(async item =>
-                {
-                    var picture = (await _pictureService.GetPictureByIdAsync(item.PictureId))
-                        ?? throw new Exception("Picture cannot be loaded");
+            var picture = await _pictureService.GetPictureByIdAsync(slide.PictureId);
+            if (picture is null)
+                continue;
 
-                    return new PublicSlideModel
-                    {
-                        PictureId = item.PictureId,
-                        PictureUrl = (await _pictureService.GetPictureUrlAsync(picture, 200)).Url,
-                        TitleText = item.TitleText,
-                        AltText = item.AltText,
-                        LinkUrl = item.LinkUrl
-                    };
-                });
-        });
+            slideModels.Add(new PublicSlideModel
+            {
+                PictureId = slide.PictureId,
+                PictureUrl = (await _pictureService.GetPictureUrlAsync(picture, 200)).Url,
+                TitleText = slide.TitleText,
+                AltText = slide.AltText,
+                LinkUrl = slide.LinkUrl
+            });
+        }
+
+        var pagedSlideModels = slideModels.ToPagedList(slidesSearchModel);
+        var model = new SlideListModel().PrepareToGrid(slidesSearchModel, pagedSlideModels, () => pagedSlideModels);
 
         return Json(model);
     }
@@ -197,29 +227,15 @@ public class WidgetSwiperController : BasePluginController
 
         var slides = await GetSlidesForStoreAsync(storeScope);
 
-        if (!slides?.Any() == true)
-            return Json(slides);
-
-        if (slides.RemoveAll(s => s.PictureId == pictureId) == 0)
+        if (slides.RemoveAll(slide => slide.PictureId == pictureId) == 0)
             return new NullJsonResult();
 
-        var pic = await _pictureService.GetPictureByIdAsync(pictureId);
-        if (pic is null)
-            return new NullJsonResult();
+        //the picture may have been deleted already, but the slide should be removed anyway
+        var picture = await _pictureService.GetPictureByIdAsync(pictureId);
+        if (picture is not null)
+            await _pictureService.DeletePictureAsync(picture);
 
-        await _pictureService.DeletePictureAsync(pic);
-
-        var sliderSettings = await _settingService.LoadSettingAsync<SwiperSettings>(storeScope);
-
-        if (!slides?.Any() == true)
-        {
-            await _settingService.DeleteSettingAsync(sliderSettings, setting => setting.Slides, storeScope);
-        }
-        else
-        {
-            sliderSettings.Slides = JsonConvert.SerializeObject(slides);
-            await _settingService.SaveSettingOverridablePerStoreAsync(sliderSettings, x => x.Slides, true, storeScope);
-        }
+        await SaveSlidesForStoreAsync(slides, storeScope);
 
         return new NullJsonResult();
     }
@@ -232,7 +248,7 @@ public class WidgetSwiperController : BasePluginController
         var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
 
         var slides = await GetSlidesForStoreAsync(storeScope);
-        if (!slides?.Any() == true)
+        if (slides.Count == 0)
             return Content("No slides");
 
         //try to get a picture with the specified id
@@ -243,9 +259,7 @@ public class WidgetSwiperController : BasePluginController
         slide.AltText = model.AltText;
         slide.LinkUrl = model.LinkUrl;
 
-        var sliderSettings = await _settingService.LoadSettingAsync<SwiperSettings>(storeScope);
-        sliderSettings.Slides = JsonConvert.SerializeObject(slides);
-        await _settingService.SaveSettingOverridablePerStoreAsync(sliderSettings, x => x.Slides, true, storeScope);
+        await SaveSlidesForStoreAsync(slides, storeScope);
 
         return new NullJsonResult();
     }
