@@ -1,0 +1,230 @@
+# nopCommerce + MySQL 8.0 单机部署编排
+#
+# ★ 全部配置已写死，不依赖 .env，不需要任何环境变量。
+#   直接运行即可:
+#     cd /path/to/deployment
+#     docker compose -f docker-compose-mysql.yml up -d
+#
+#   首次部署需先建目录并播种 App_Data / images / files / Plugins / Themes，
+#   见文件末尾"部署步骤"。
+#
+# 与 deploy/docker-compose.yml（SQL Server 版）的差异：
+#   1. mssql 服务      -> mysql 服务，镜像 mysql:8.0
+#   2. 数据目录        -> ./data/mssql     改为 ./data/mysql
+#   3. 容器内数据路径  -> /var/opt/mssql    改为 /var/lib/mysql
+#   4. 连接端口        -> 3306（SQL Server 是 1433）
+#   5. 健康检查        -> mysqladmin ping（原为 sqlcmd 'SELECT 1'）
+#   6. NOP_DATA_PROVIDER -> mysql（原为 sqlserver）
+#   7. 排序规则        -> utf8mb4_0900_ai_ci
+#
+# 注意: 本文件与 deploy/docker-compose.yml 的 name 相同（mymall），
+#       两者不能同时运行。
+
+name: mymall
+
+services:
+  # ---------------------------------------------------------------- 应用
+  nopcommerce:
+    image: nopcommerceteam/nopcommerce:4.90.8
+    # 不用 latest —— 升级要可控，必须锁定具体 release 版本号
+
+    restart: unless-stopped
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+    ports:
+      - "80:80"
+      # 官方镜像内 ASPNETCORE_URLS=http://+:80，容器内固定 80
+      # 宿主机映射 80，直接使用标准 HTTP 端口
+
+    environment:
+      # nopCommerce 优先读取 App_Data/appsettings.json，环境变量可覆盖它。
+      # 首次安装向导里填的连接信息会写进 App_Data，
+      # 因此这里只需保证安装向导可解析到 mysql 容器名即可。
+      - NOP_DATA_PROVIDER=mysql
+
+    # 容器内运行用户。bind mount 下宿主目录属主必须与之一致，
+    # 否则应用无法写入 App_Data / images。
+    # 实测确认官方镜像以 root 运行:
+    #   docker run --rm --entrypoint id nopcommerceteam/nopcommerce:4.90.8
+    user: "0:0"
+
+    volumes:
+      # 全部 bind mount —— 统一落在与本文件同级的 data/ 下
+      # App_Data: 存放 appsettings.json + DataProtectionKeys + 插件清单
+      - ./data/nop-appdata:/app/App_Data
+
+      # 商品图片 / 上传文件（数据量大，独立目录便于单独备份）
+      - ./data/nop-images:/app/wwwroot/images
+      - ./data/nop-files:/app/wwwroot/files
+
+      # 插件 / 主题：后台安装或升级的内容必须落在这里，
+      # 否则容器重建后会丢失；镜像自带的 Plugins/Themes 会被 bind mount 遮住，
+      # 因此首次部署必须先把镜像内容播种到这两个目录。
+      - ./data/nop-plugins:/app/Plugins
+      - ./data/nop-themes:/app/Themes
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    healthcheck:
+      # 官方镜像未装 curl/wget，故仅在镜像内确认进程存活
+      # （应用层健康由首次访问验证）。
+      test: ["CMD-SHELL", "pgrep -f 'dotnet' >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
+    networks:
+      - mymall
+
+  # ---------------------------------------------------------------- 数据库
+  mysql:
+    image: mysql:8.0
+
+    restart: unless-stopped
+
+    command:
+      # nopCommerce 对 MySQL 的要求：utf8mb4 字符集（中文/emoji）。
+      # ★ 不要加 --character-set-server=utf8 —— 3 字节 utf8 存不下 emoji。
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      # 显式指定排序规则是必要的：MySQL 8.0 默认的 utf8mb4_0900_ai_ci
+      # 与 5.7 的 utf8mb4_general_ci 不同，显式写死便于迁移与复制。
+      - --default-authentication-plugin=mysql_native_password
+      # 兼容旧版客户端（含部分 nopCommerce MySqlConnector 版本）
+      - --explicit_defaults_for_timestamp=1
+      # 默认 TIME 列行为为 NULL，避免安装时建表告警
+      - --max_allowed_packet=64M
+      # 商品描述/导入 SQL 可能很大，默认 64M 留足余量
+
+    environment:
+      # ★ 首次部署前请修改以下密码
+      MYSQL_ROOT_PASSWORD: "Mymall_R00t!Passw0rd"
+      # nopCommerce 安装向导里填的 Database name 要与此一致
+      MYSQL_DATABASE: "mymall"
+      # 应用专用账号（非 root），避免应用侧持 root 凭证
+      MYSQL_USER: "nop"
+      MYSQL_PASSWORD: "Mymall_N0p!Passw0rd"
+      TZ: "Asia/Shanghai"
+      # 时区与宿主一致，否则订单时间会偏移
+
+      # ★ 注意：MySQL 官方镜像的 MYSQL_DATABASE/MYSQL_USER 只在
+      #   数据目录为空的首次初始化时生效。data/mysql 已有数据时，
+      #   改这里不会有任何效果（需要用 SQL 手动改）。
+
+    volumes:
+      # ★ 关键：少了这条，数据随容器一起消失
+      - ./data/mysql:/var/lib/mysql
+
+    ports:
+      # 只绑本机回环，不对外暴露 3306
+      - "127.0.0.1:3306:3306"
+
+    healthcheck:
+      # mysqladmin ping 不需要密码即可探测进程是否可响应。
+      # 用 root + 密码更准确，但密码会出现在进程列表里，故不推荐。
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    networks:
+      - mymall
+
+# 无顶层 volumes: —— 数据全部通过 bind mount 落在与本文件同级的 data/ 下。
+# 备份就是打包这一个目录:
+#   tar czf mymall-data-$(date +%F).tar.gz data
+
+networks:
+  mymall:
+    driver: bridge
+
+# ---------------------------------------------------------------- 部署步骤
+#
+# 1) 创建数据目录并修正属主
+#
+#    MySQL 容器以 uid=999(mysql) 运行:
+#      docker run --rm --entrypoint id mysql:8.0
+#    nopCommerce 容器以 root(0) 运行。
+#
+#    cd /path/to/deployment
+#    mkdir -p data/mysql data/nop-appdata data/nop-images data/nop-files \
+#             data/nop-plugins data/nop-themes
+#    sudo chown -R 999:999 data/mysql && sudo chmod -R 775 data/mysql
+#
+# 2) 从官方镜像播种 App_Data / images / files / Plugins / Themes
+#    （宿主目录为空时，bind mount 会遮住镜像内的内容，必须先把内容复制出来）
+#
+#    IMG=nopcommerceteam/nopcommerce:4.90.8
+#    for pair in "nop-appdata:/app/App_Data" \
+#                "nop-images:/app/wwwroot/images" \
+#                "nop-files:/app/wwwroot/files" \
+#                "nop-plugins:/app/Plugins" \
+#                "nop-themes:/app/Themes"; do
+#      host="data/${pair%%:*}"; path="${pair##*:}"
+#      [ -n "$(ls -A "$host" 2>/dev/null)" ] && continue
+#      tmp=$(mktemp -d)
+#      docker run --rm --entrypoint tar "$IMG" \
+#        -cf - -C "$(dirname "$path")" "$(basename "$path")" | tar -xf - -C "$tmp"
+#      cp -a "$tmp/$(basename "$path")/." "$host/"
+#      rm -rf "$tmp"
+#    done
+#    sudo chown -R 0:0 data/nop-appdata data/nop-images data/nop-files \
+#                      data/nop-plugins data/nop-themes
+#
+# 3) 启动
+#
+#    docker compose -f docker-compose-mysql.yml up -d
+#
+# 4) 访问并执行安装向导
+#
+#    http://<host>/
+#
+#    安装时填写:
+#      Data provider     MySQL
+#      Server name       mysql          ← 必须是容器名，不要用 localhost
+#      Database name     mymall
+#      MySQL user        nop
+#      Password          Mymall_N0p!Passw0rd
+#      Admin email       你想用的邮箱
+#      Admin password    你想用的密码
+#
+# ---------------------------------------------------------------- 备份/恢复
+#
+# 数据库备份:
+#   docker compose -f docker-compose-mysql.yml exec -T mysql \
+#     mysqldump -u root -p'Mymall_R00t!Passw0rd' \
+#     --single-transaction --routines --triggers --databases mymall \
+#     > backup-$(date +%F).sql
+#
+# 数据库恢复:
+#   docker compose -f docker-compose-mysql.yml exec -T mysql \
+#     mysql -u root -p'Mymall_R00t!Passw0rd' mymall < backup-2026-09-28.sql
+#
+# 文件备份（App_Data 含加密密钥 + 图片 + 上传文件）:
+#   sudo tar czf mymall-files-$(date +%F).tar.gz -C . data
+#
+# ---------------------------------------------------------------- 常用命令
+#
+#   启动:   docker compose -f docker-compose-mysql.yml up -d
+#   停止:   docker compose -f docker-compose-mysql.yml stop
+#   重启:   docker compose -f docker-compose-mysql.yml restart
+#   日志:   docker compose -f docker-compose-mysql.yml logs -f
+#   删除:   docker compose -f docker-compose-mysql.yml down
+#           （不会删 data/ 里的内容）
+#   进库:   docker compose -f docker-compose-mysql.yml exec mysql \
+#             mysql -u root -p'Mymall_R00t!Passw0rd'
